@@ -1,0 +1,36 @@
+CREATE DATABASE IF NOT EXISTS jewelry_db;
+USE jewelry_db;
+
+CREATE TABLE workers (
+    phone_number VARCHAR(15) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE clients (
+    phone_number VARCHAR(15) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE orders (
+    order_number BIGINT AUTO_INCREMENT,
+    id VARCHAR(10) PRIMARY KEY,
+    client_phone VARCHAR(15),
+    jewellery_details JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_phone) REFERENCES clients(phone_number)
+);
+
+CREATE TABLE messages (
+    message_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id VARCHAR(10) NOT NULL,
+    content TEXT NOT NULL,
+    media_id VARCHAR(100),
+    sender_type ENUM('enterprise', 'client', 'worker') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
