@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
+const cors = require('cors');
 
 // Database connection configuration
 const dbConfig = {
@@ -16,6 +17,11 @@ const pool = mysql.createPool(dbConfig);
 const app = express();
 app.use(express.json());
 
+app.use(cors({
+  origin: '*', // This allows all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization'] // Allowed headers
+}));
 // Helper function for order ID generation
 function generateOrderId(orderNumber) {
     const year = new Date().getFullYear().toString().slice(-2);
