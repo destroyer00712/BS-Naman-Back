@@ -3,6 +3,10 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 
+// Web Sockets
+const http = require('http');
+const { Server } = require('socket.io');
+
 // Database connection configuration
 const dbConfig = {
   host: process.env.DB_HOST,
@@ -15,6 +19,15 @@ const dbConfig = {
 const pool = mysql.createPool(dbConfig);
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",  
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
+        allowedHeaders: ['Content-Type', 'Authorization'] 
+    }
+});
+
 app.use(express.json());
 
 app.use(cors({
@@ -22,6 +35,16 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
   allowedHeaders: ['Content-Type', 'Authorization'] // Allowed headers
 }));
+
+// Socket Connection
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
+});
+
 // Helper function for order ID generation
 function generateOrderId(orderNumber) {
     const year = new Date().getFullYear().toString().slice(-2);
@@ -60,6 +83,16 @@ function generateOrderId(orderNumber) {
         );
   
         await connection.commit();
+
+
+        const newOrder = {
+            id: result.insertId,
+            client_id,
+            worker_id,
+            description
+        };
+
+        io.emit('newOrder', newOrder);
   
         res.status(201).json({
           message: 'Order created successfully',
@@ -641,6 +674,11 @@ app.post('/api/messages', async (req, res) => {
           'SELECT * FROM messages WHERE message_id = ?',
           [result.insertId]
         );
+
+     // Emit the new message to all connected clients
+        const newMessage = message[0];
+         io.emit(`newMessage:${order_id}`, newMessage);
+         io.emit('newMessage', newMessage);
   
         res.status(201).json({
           message: 'Message saved successfully',
@@ -674,6 +712,9 @@ app.post('/api/messages', async (req, res) => {
           FROM messages 
           ORDER BY created_at DESC`
         );
+
+         // Emit messages list to clients
+         io.emit('allMessages', messages);
   
         res.json({ 
           count: messages.length,
@@ -721,6 +762,9 @@ app.post('/api/messages', async (req, res) => {
           ORDER BY created_at ASC`,
           [orderId]
         );
+
+                 // Emit messages for the specific order
+                 io.emit(`messagesForOrder:${orderId}`, messages);
   
         res.json({ 
           order_id: orderId,
