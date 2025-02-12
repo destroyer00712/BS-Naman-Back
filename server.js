@@ -84,7 +84,6 @@ function generateOrderId(orderNumber) {
   
         await connection.commit();
 
-
         const newOrder = {
             id: result.insertId,
             client_id,
