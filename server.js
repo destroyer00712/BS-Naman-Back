@@ -92,6 +92,8 @@ function generateOrderId(orderNumber) {
             description
         };
 
+        console.log(newOrder);
+
         io.emit('newOrder', newOrder);
   
         res.status(201).json({
