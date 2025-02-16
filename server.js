@@ -58,10 +58,10 @@ function generateOrderId(orderNumber) {
   app.post('/api/orders', async (req, res) => {
     try {
       const { client_details, jewellery_details } = req.body;
-      
+  
       if (!client_details?.phone || !jewellery_details) {
-        return res.status(400).json({ 
-          error: 'Missing required fields' 
+        return res.status(400).json({
+          error: 'Missing required fields'
         });
       }
   
@@ -83,16 +83,13 @@ function generateOrderId(orderNumber) {
         );
   
         await connection.commit();
-
+  
         const newOrder = {
-            id: result.insertId,
-            client_id,
-            worker_id,
-            description
+          id: orderId, // Use the generated orderId
+          client_details, // Include client details
+          jewellery_details // Include jewellery details
         };
-
-        console.log(newOrder);
-
+  
         io.emit('newOrder', newOrder);
   
         res.status(201).json({
