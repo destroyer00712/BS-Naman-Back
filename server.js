@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 
 // Web Sockets
 const http = require('http');
@@ -17,6 +21,39 @@ const dbConfig = {
 
 // Create connection pool
 const pool = mysql.createPool(dbConfig);
+
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  // Accept only audio, video, and image files
+  const allowedTypes = ['audio/', 'video/', 'image/'];
+  if (allowedTypes.some(type => file.mimetype.startsWith(type))) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only audio, video, and image files are allowed.'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 16 * 1024 * 1024 // 16MB limit
+  }
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -790,3 +827,50 @@ app.post('/api/messages', async (req, res) => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+// Media upload endpoint
+app.post('/api/media/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      // Store file metadata in database
+      const [result] = await connection.execute(
+        'INSERT INTO media_files (file_name, original_name, mime_type, file_size, storage_url) VALUES (?, ?, ?, ?, ?)',
+        [
+          req.file.filename,
+          req.file.originalname,
+          req.file.mimetype,
+          req.file.size,
+          `/uploads/${req.file.filename}` // This will be the URL to access the file
+        ]
+      );
+
+      res.status(201).json({
+        permanentUrl: `/uploads/${req.file.filename}`,
+        fileId: result.insertId,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype
+      });
+
+    } finally {
+      connection.release();
+    }
+
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    // If there's an error, delete the uploaded file
+    if (req.file && req.file.path) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Error deleting file:', err);
+      });
+    }
+    res.status(500).json({ error: 'Error uploading file' });
+  }
+});
+
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
