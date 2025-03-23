@@ -76,10 +76,21 @@ app.use(cors({
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
+// Test route to verify server is working
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Server is working!' });
+});
+
 // Media upload endpoint
 app.post('/api/media/upload', upload.single('file'), async (req, res) => {
+  console.log('Received upload request');
+  console.log('Request headers:', req.headers);
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file);
+  
   try {
     if (!req.file) {
+      console.log('No file in request');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
@@ -97,6 +108,7 @@ app.post('/api/media/upload', upload.single('file'), async (req, res) => {
         ]
       );
 
+      console.log('File uploaded successfully:', result);
       res.status(201).json({
         permanentUrl: `/uploads/${req.file.filename}`,
         fileId: result.insertId,
@@ -116,7 +128,7 @@ app.post('/api/media/upload', upload.single('file'), async (req, res) => {
         if (err) console.error('Error deleting file:', err);
       });
     }
-    res.status(500).json({ error: 'Error uploading file' });
+    res.status(500).json({ error: 'Error uploading file', details: error.message });
   }
 });
 
