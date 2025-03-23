@@ -73,6 +73,53 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'] // Allowed headers
 }));
 
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
+
+// Media upload endpoint
+app.post('/api/media/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      // Store file metadata in database
+      const [result] = await connection.execute(
+        'INSERT INTO media_files (file_name, original_name, mime_type, file_size, storage_url) VALUES (?, ?, ?, ?, ?)',
+        [
+          req.file.filename,
+          req.file.originalname,
+          req.file.mimetype,
+          req.file.size,
+          `/uploads/${req.file.filename}` // This will be the URL to access the file
+        ]
+      );
+
+      res.status(201).json({
+        permanentUrl: `/uploads/${req.file.filename}`,
+        fileId: result.insertId,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype
+      });
+
+    } finally {
+      connection.release();
+    }
+
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    // If there's an error, delete the uploaded file
+    if (req.file && req.file.path) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Error deleting file:', err);
+      });
+    }
+    res.status(500).json({ error: 'Error uploading file' });
+  }
+});
+
 // Socket Connection
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -824,53 +871,6 @@ app.post('/api/messages', async (req, res) => {
   
   // Start server
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-
-// Media upload endpoint
-app.post('/api/media/upload', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    const connection = await pool.getConnection();
-    try {
-      // Store file metadata in database
-      const [result] = await connection.execute(
-        'INSERT INTO media_files (file_name, original_name, mime_type, file_size, storage_url) VALUES (?, ?, ?, ?, ?)',
-        [
-          req.file.filename,
-          req.file.originalname,
-          req.file.mimetype,
-          req.file.size,
-          `/uploads/${req.file.filename}` // This will be the URL to access the file
-        ]
-      );
-
-      res.status(201).json({
-        permanentUrl: `/uploads/${req.file.filename}`,
-        fileId: result.insertId,
-        fileName: req.file.originalname,
-        mimeType: req.file.mimetype
-      });
-
-    } finally {
-      connection.release();
-    }
-
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    // If there's an error, delete the uploaded file
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Error deleting file:', err);
-      });
-    }
-    res.status(500).json({ error: 'Error uploading file' });
-  }
-});
-
-// Serve uploaded files
-app.use('/uploads', express.static('uploads'));
