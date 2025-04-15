@@ -361,46 +361,53 @@ function generateOrderId(orderNumber) {
   // Create worker
   app.post('/api/workers', async (req, res) => {
     try {
-      const { name, phone_number } = req.body;
+      const { name, phone_numbers } = req.body;
       
-      if (!name || !phone_number) {
+      if (!name || !phone_numbers || !Array.isArray(phone_numbers) || phone_numbers.length === 0) {
         return res.status(400).json({ 
-          error: 'Name and phone number are required' 
+          error: 'Name and at least one phone number are required' 
         });
       }
-  
+
       const connection = await pool.getConnection();
-  
+
       try {
-        const [existing] = await connection.execute(
-          'SELECT phone_number FROM workers WHERE phone_number = ?',
-          [phone_number]
+        // Format phone numbers with IDs and is_primary flag
+        const formattedPhoneNumbers = phone_numbers.map((phone, index) => ({
+          id: index + 1,
+          phone_number: phone,
+          is_primary: index === 0
+        }));
+
+        // Insert worker with phone numbers
+        const [result] = await connection.execute(
+          'INSERT INTO workers (name, phone_numbers) VALUES (?, ?)',
+          [name, JSON.stringify(formattedPhoneNumbers)]
         );
-  
-        if (existing.length > 0) {
-          return res.status(409).json({
-            error: 'Worker with this phone number already exists'
-          });
-        }
-  
-        await connection.execute(
-          'INSERT INTO workers (name, phone_number) VALUES (?, ?)',
-          [name, phone_number]
+
+        const workerId = result.insertId;
+
+        // Fetch the created worker
+        const [worker] = await connection.execute(
+          'SELECT * FROM workers WHERE id = ?',
+          [workerId]
         );
-  
+
         res.status(201).json({
           message: 'Worker created successfully',
           worker: {
-            name,
-            phone_number,
-            created_at: new Date()
+            id: worker[0].id,
+            name: worker[0].name,
+            phone_numbers: JSON.parse(worker[0].phone_numbers),
+            created_at: worker[0].created_at,
+            updated_at: worker[0].updated_at
           }
         });
-  
+
       } finally {
         connection.release();
       }
-  
+
     } catch (error) {
       console.error('Error creating worker:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -414,43 +421,59 @@ function generateOrderId(orderNumber) {
       
       try {
         const [workers] = await connection.execute(
-          `SELECT * FROM workers ORDER BY created_at DESC`
+          'SELECT * FROM workers ORDER BY created_at DESC'
         );
-  
-        res.json({ workers });
-  
+
+        const formattedWorkers = workers.map(worker => ({
+          id: worker.id,
+          name: worker.name,
+          phone_numbers: JSON.parse(worker.phone_numbers),
+          created_at: worker.created_at,
+          updated_at: worker.updated_at
+        }));
+
+        res.json({ workers: formattedWorkers });
+
       } finally {
         connection.release();
       }
-  
+
     } catch (error) {
       console.error('Error fetching workers:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
   
-  // Get worker by phone number
-  app.get('/api/workers/:phoneNumber', async (req, res) => {
+  // Get worker by ID
+  app.get('/api/workers/:id', async (req, res) => {
     try {
-      const { phoneNumber } = req.params;
+      const { id } = req.params;
       const connection = await pool.getConnection();
-  
+
       try {
         const [workers] = await connection.execute(
-          'SELECT * FROM workers WHERE phone_number = ?',
-          [phoneNumber]
+          'SELECT * FROM workers WHERE id = ?',
+          [id]
         );
-  
+
         if (workers.length === 0) {
           return res.status(404).json({ error: 'Worker not found' });
         }
-  
-        res.json({ worker: workers[0] });
-  
+
+        const worker = {
+          id: workers[0].id,
+          name: workers[0].name,
+          phone_numbers: JSON.parse(workers[0].phone_numbers),
+          created_at: workers[0].created_at,
+          updated_at: workers[0].updated_at
+        };
+
+        res.json({ worker });
+
       } finally {
         connection.release();
       }
-  
+
     } catch (error) {
       console.error('Error fetching worker:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -458,46 +481,75 @@ function generateOrderId(orderNumber) {
   });
   
   // Update worker
-  app.put('/api/workers/:phoneNumber', async (req, res) => {
+  app.put('/api/workers/:id', async (req, res) => {
     try {
-      const { phoneNumber } = req.params;
-      const { name } = req.body;
+      const { id } = req.params;
+      const { name, phone_numbers } = req.body;
       
-      if (!name) {
-        return res.status(400).json({ error: 'Name is required for update' });
+      if (!name && !phone_numbers) {
+        return res.status(400).json({ error: 'At least one field must be provided for update' });
       }
-  
+
       const connection = await pool.getConnection();
-  
+
       try {
         const [workerExists] = await connection.execute(
-          'SELECT phone_number FROM workers WHERE phone_number = ?',
-          [phoneNumber]
+          'SELECT * FROM workers WHERE id = ?',
+          [id]
         );
-  
+
         if (workerExists.length === 0) {
           return res.status(404).json({ error: 'Worker not found' });
         }
-  
-        await connection.execute(
-          'UPDATE workers SET name = ? WHERE phone_number = ?',
-          [name, phoneNumber]
-        );
-  
+
+        let updateQuery = 'UPDATE workers SET ';
+        const updateValues = [];
+
+        if (name) {
+          updateQuery += 'name = ?, ';
+          updateValues.push(name);
+        }
+
+        if (phone_numbers && Array.isArray(phone_numbers)) {
+          // Format phone numbers with IDs and is_primary flag
+          const formattedPhoneNumbers = phone_numbers.map((phone, index) => ({
+            id: index + 1,
+            phone_number: phone,
+            is_primary: index === 0
+          }));
+          
+          updateQuery += 'phone_numbers = ?, ';
+          updateValues.push(JSON.stringify(formattedPhoneNumbers));
+        }
+
+        // Remove trailing comma and space
+        updateQuery = updateQuery.slice(0, -2);
+        updateQuery += ' WHERE id = ?';
+        updateValues.push(id);
+
+        await connection.execute(updateQuery, updateValues);
+
+        // Fetch updated worker
         const [updatedWorker] = await connection.execute(
-          'SELECT * FROM workers WHERE phone_number = ?',
-          [phoneNumber]
+          'SELECT * FROM workers WHERE id = ?',
+          [id]
         );
-  
+
         res.json({
           message: 'Worker updated successfully',
-          worker: updatedWorker[0]
+          worker: {
+            id: updatedWorker[0].id,
+            name: updatedWorker[0].name,
+            phone_numbers: JSON.parse(updatedWorker[0].phone_numbers),
+            created_at: updatedWorker[0].created_at,
+            updated_at: updatedWorker[0].updated_at
+          }
         });
-  
+
       } finally {
         connection.release();
       }
-  
+
     } catch (error) {
       console.error('Error updating worker:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -505,35 +557,35 @@ function generateOrderId(orderNumber) {
   });
   
   // Delete worker
-  app.delete('/api/workers/:phoneNumber', async (req, res) => {
+  app.delete('/api/workers/:id', async (req, res) => {
     try {
-      const { phoneNumber } = req.params;
+      const { id } = req.params;
       const connection = await pool.getConnection();
-  
+
       try {
         const [workerExists] = await connection.execute(
-          'SELECT phone_number FROM workers WHERE phone_number = ?',
-          [phoneNumber]
+          'SELECT id FROM workers WHERE id = ?',
+          [id]
         );
-  
+
         if (workerExists.length === 0) {
           return res.status(404).json({ error: 'Worker not found' });
         }
-  
+
         await connection.execute(
-          'DELETE FROM workers WHERE phone_number = ?',
-          [phoneNumber]
+          'DELETE FROM workers WHERE id = ?',
+          [id]
         );
-  
+
         res.json({
           message: 'Worker deleted successfully',
-          phone_number: phoneNumber
+          id: id
         });
-  
+
       } finally {
         connection.release();
       }
-  
+
     } catch (error) {
       console.error('Error deleting worker:', error);
       res.status(500).json({ error: 'Internal server error' });
