@@ -9,16 +9,7 @@ Content-Type: application/json
 
 {
   "name": "John Doe",
-  "phone_numbers": [
-    {
-      "phone_number": "1234567890",
-      "is_primary": true
-    },
-    {
-      "phone_number": "0987654321",
-      "is_primary": false
-    }
-  ]
+  "phone_numbers": ["1234567890", "0987654321"]
 }
 ```
 
@@ -29,18 +20,7 @@ Response:
   "worker": {
     "id": 1,
     "name": "John Doe",
-    "phone_numbers": [
-      {
-        "id": 1,
-        "phone_number": "1234567890",
-        "is_primary": true
-      },
-      {
-        "id": 2,
-        "phone_number": "0987654321",
-        "is_primary": false
-      }
-    ],
+    "phone_numbers": ["1234567890", "0987654321"],
     "created_at": "2024-03-21T10:00:00Z",
     "updated_at": "2024-03-21T10:00:00Z"
   }
@@ -59,18 +39,7 @@ Response:
     {
       "id": 1,
       "name": "John Doe",
-      "phone_numbers": [
-        {
-          "id": 1,
-          "phone_number": "1234567890",
-          "is_primary": true
-        },
-        {
-          "id": 2,
-          "phone_number": "0987654321",
-          "is_primary": false
-        }
-      ],
+      "phone_numbers": ["1234567890", "0987654321"],
       "created_at": "2024-03-21T10:00:00Z",
       "updated_at": "2024-03-21T10:00:00Z"
     }
@@ -89,18 +58,7 @@ Response:
   "worker": {
     "id": 1,
     "name": "John Doe",
-    "phone_numbers": [
-      {
-        "id": 1,
-        "phone_number": "1234567890",
-        "is_primary": true
-      },
-      {
-        "id": 2,
-        "phone_number": "0987654321",
-        "is_primary": false
-      }
-    ],
+    "phone_numbers": ["1234567890", "0987654321"],
     "created_at": "2024-03-21T10:00:00Z",
     "updated_at": "2024-03-21T10:00:00Z"
   }
@@ -114,22 +72,7 @@ Content-Type: application/json
 
 {
   "name": "John Doe Updated",
-  "phone_numbers": [
-    {
-      "id": 1,
-      "phone_number": "1234567890",
-      "is_primary": true
-    },
-    {
-      "id": 2,
-      "phone_number": "0987654321",
-      "is_primary": false
-    },
-    {
-      "phone_number": "5555555555",
-      "is_primary": false
-    }
-  ]
+  "phone_numbers": ["1234567890", "0987654321", "5555555555"]
 }
 ```
 
@@ -140,23 +83,7 @@ Response:
   "worker": {
     "id": 1,
     "name": "John Doe Updated",
-    "phone_numbers": [
-      {
-        "id": 1,
-        "phone_number": "1234567890",
-        "is_primary": true
-      },
-      {
-        "id": 2,
-        "phone_number": "0987654321",
-        "is_primary": false
-      },
-      {
-        "id": 3,
-        "phone_number": "5555555555",
-        "is_primary": false
-      }
-    ],
+    "phone_numbers": ["1234567890", "0987654321", "5555555555"],
     "created_at": "2024-03-21T10:00:00Z",
     "updated_at": "2024-03-21T11:00:00Z"
   }
@@ -218,14 +145,12 @@ To migrate existing data to the new schema:
 
 1. Run the `migrate_worker_phone_numbers.sql` script
 2. This will:
-   - Add a JSON column to store phone numbers
-   - Convert existing phone numbers to JSON format
-   - Remove the old worker_phone_numbers table
+   - Convert the phone_numbers column to JSON type
+   - Convert existing phone numbers to JSON array format
    - Maintain data integrity throughout the migration
 
 ## Validation Rules
 
 1. At least one phone number is required when creating a worker
-2. The first phone number in the array is considered the primary number
-3. Phone numbers must be valid (15 characters or less)
-4. Worker names must be non-empty 
+2. Phone numbers must be valid (15 characters or less)
+3. Worker names must be non-empty 

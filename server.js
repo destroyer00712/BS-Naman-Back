@@ -372,17 +372,10 @@ function generateOrderId(orderNumber) {
       const connection = await pool.getConnection();
 
       try {
-        // Format phone numbers with IDs and is_primary flag
-        const formattedPhoneNumbers = phone_numbers.map((phone, index) => ({
-          id: index + 1,
-          phone_number: phone,
-          is_primary: index === 0
-        }));
-
         // Insert worker with phone numbers
         const [result] = await connection.execute(
           'INSERT INTO workers (name, phone_numbers) VALUES (?, ?)',
-          [name, JSON.stringify(formattedPhoneNumbers)]
+          [name, JSON.stringify(phone_numbers)]
         );
 
         const workerId = result.insertId;
@@ -511,15 +504,8 @@ function generateOrderId(orderNumber) {
         }
 
         if (phone_numbers && Array.isArray(phone_numbers)) {
-          // Format phone numbers with IDs and is_primary flag
-          const formattedPhoneNumbers = phone_numbers.map((phone, index) => ({
-            id: index + 1,
-            phone_number: phone,
-            is_primary: index === 0
-          }));
-          
           updateQuery += 'phone_numbers = ?, ';
-          updateValues.push(JSON.stringify(formattedPhoneNumbers));
+          updateValues.push(JSON.stringify(phone_numbers));
         }
 
         // Remove trailing comma and space
