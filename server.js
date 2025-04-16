@@ -369,34 +369,65 @@ function generateOrderId(orderNumber) {
         });
       }
 
+      // Validate that exactly one phone number is marked as primary
+      const primaryCount = phone_numbers.filter(pn => pn.is_primary).length;
+      if (primaryCount !== 1) {
+        return res.status(400).json({ 
+          error: 'Exactly one phone number must be marked as primary' 
+        });
+      }
+
       const connection = await pool.getConnection();
 
       try {
-        // Insert worker with phone numbers
+        await connection.beginTransaction();
+
+        // Insert worker
         const [result] = await connection.execute(
-          'INSERT INTO workers (name, phone_numbers) VALUES (?, ?)',
-          [name, JSON.stringify(phone_numbers)]
+          'INSERT INTO workers (name) VALUES (?)',
+          [name]
         );
 
         const workerId = result.insertId;
 
-        // Fetch the created worker
-        const [worker] = await connection.execute(
+        // Insert phone numbers
+        for (const pn of phone_numbers) {
+          await connection.execute(
+            'INSERT INTO worker_phone_numbers (worker_id, phone_number, is_primary) VALUES (?, ?, ?)',
+            [workerId, pn.number, pn.is_primary]
+          );
+        }
+
+        await connection.commit();
+
+        // Fetch the created worker with all phone numbers
+        const [workers] = await connection.execute(
           'SELECT * FROM workers WHERE id = ?',
+          [workerId]
+        );
+
+        const [phoneNumbers] = await connection.execute(
+          'SELECT phone_number, is_primary FROM worker_phone_numbers WHERE worker_id = ?',
           [workerId]
         );
 
         res.status(201).json({
           message: 'Worker created successfully',
           worker: {
-            id: worker[0].id,
-            name: worker[0].name,
-            phone_numbers: JSON.parse(worker[0].phone_numbers),
-            created_at: worker[0].created_at,
-            updated_at: worker[0].updated_at
+            id: workers[0].id,
+            name: workers[0].name,
+            phone_numbers: phoneNumbers.map(pn => ({
+              number: pn.phone_number,
+              is_primary: pn.is_primary
+            })),
+            created_at: workers[0].created_at,
+            updated_at: workers[0].updated_at
           }
         });
 
+      } catch (error) {
+        await connection.rollback();
+        throw error;
       } finally {
         connection.release();
       }
@@ -417,12 +448,22 @@ function generateOrderId(orderNumber) {
           'SELECT * FROM workers ORDER BY created_at DESC'
         );
 
-        const formattedWorkers = workers.map(worker => ({
-          id: worker.id,
-          name: worker.name,
-          phone_numbers: JSON.parse(worker.phone_numbers),
-          created_at: worker.created_at,
-          updated_at: worker.updated_at
+        const formattedWorkers = await Promise.all(workers.map(async (worker) => {
+          const [phoneNumbers] = await connection.execute(
+            'SELECT phone_number, is_primary FROM worker_phone_numbers WHERE worker_id = ?',
+            [worker.id]
+          );
+
+          return {
+            id: worker.id,
+            name: worker.name,
+            phone_numbers: phoneNumbers.map(pn => ({
+              number: pn.phone_number,
+              is_primary: pn.is_primary
+            })),
+            created_at: worker.created_at,
+            updated_at: worker.updated_at
+          };
         }));
 
         res.json({ workers: formattedWorkers });
@@ -453,10 +494,18 @@ function generateOrderId(orderNumber) {
           return res.status(404).json({ error: 'Worker not found' });
         }
 
+        const [phoneNumbers] = await connection.execute(
+          'SELECT phone_number, is_primary FROM worker_phone_numbers WHERE worker_id = ?',
+          [id]
+        );
+
         const worker = {
           id: workers[0].id,
           name: workers[0].name,
-          phone_numbers: JSON.parse(workers[0].phone_numbers),
+          phone_numbers: phoneNumbers.map(pn => ({
+            number: pn.phone_number,
+            is_primary: pn.is_primary
+          })),
           created_at: workers[0].created_at,
           updated_at: workers[0].updated_at
         };
@@ -483,9 +532,21 @@ function generateOrderId(orderNumber) {
         return res.status(400).json({ error: 'At least one field must be provided for update' });
       }
 
+      // If phone_numbers are provided, validate that exactly one is primary
+      if (phone_numbers && Array.isArray(phone_numbers)) {
+        const primaryCount = phone_numbers.filter(pn => pn.is_primary).length;
+        if (primaryCount !== 1) {
+          return res.status(400).json({ 
+            error: 'Exactly one phone number must be marked as primary' 
+          });
+        }
+      }
+
       const connection = await pool.getConnection();
 
       try {
+        await connection.beginTransaction();
+
         const [workerExists] = await connection.execute(
           'SELECT * FROM workers WHERE id = ?',
           [id]
@@ -495,29 +556,39 @@ function generateOrderId(orderNumber) {
           return res.status(404).json({ error: 'Worker not found' });
         }
 
-        let updateQuery = 'UPDATE workers SET ';
-        const updateValues = [];
-
         if (name) {
-          updateQuery += 'name = ?, ';
-          updateValues.push(name);
+          await connection.execute(
+            'UPDATE workers SET name = ? WHERE id = ?',
+            [name, id]
+          );
         }
 
         if (phone_numbers && Array.isArray(phone_numbers)) {
-          updateQuery += 'phone_numbers = ?, ';
-          updateValues.push(JSON.stringify(phone_numbers));
+          // Delete existing phone numbers
+          await connection.execute(
+            'DELETE FROM worker_phone_numbers WHERE worker_id = ?',
+            [id]
+          );
+
+          // Insert new phone numbers
+          for (const pn of phone_numbers) {
+            await connection.execute(
+              'INSERT INTO worker_phone_numbers (worker_id, phone_number, is_primary) VALUES (?, ?, ?)',
+              [id, pn.number, pn.is_primary]
+            );
+          }
         }
 
-        // Remove trailing comma and space
-        updateQuery = updateQuery.slice(0, -2);
-        updateQuery += ' WHERE id = ?';
-        updateValues.push(id);
+        await connection.commit();
 
-        await connection.execute(updateQuery, updateValues);
-
-        // Fetch updated worker
+        // Fetch updated worker with all phone numbers
         const [updatedWorker] = await connection.execute(
           'SELECT * FROM workers WHERE id = ?',
+          [id]
+        );
+
+        const [phoneNumbers] = await connection.execute(
+          'SELECT phone_number, is_primary FROM worker_phone_numbers WHERE worker_id = ?',
           [id]
         );
 
@@ -526,12 +597,18 @@ function generateOrderId(orderNumber) {
           worker: {
             id: updatedWorker[0].id,
             name: updatedWorker[0].name,
-            phone_numbers: JSON.parse(updatedWorker[0].phone_numbers),
+            phone_numbers: phoneNumbers.map(pn => ({
+              number: pn.phone_number,
+              is_primary: pn.is_primary
+            })),
             created_at: updatedWorker[0].created_at,
             updated_at: updatedWorker[0].updated_at
           }
         });
 
+      } catch (error) {
+        await connection.rollback();
+        throw error;
       } finally {
         connection.release();
       }
@@ -558,6 +635,7 @@ function generateOrderId(orderNumber) {
           return res.status(404).json({ error: 'Worker not found' });
         }
 
+        // Note: Phone numbers will be automatically deleted due to ON DELETE CASCADE
         await connection.execute(
           'DELETE FROM workers WHERE id = ?',
           [id]
@@ -577,6 +655,69 @@ function generateOrderId(orderNumber) {
       res.status(500).json({ error: 'Internal server error' });
     }
   });
+
+  // Get worker by phone number
+  app.get('/api/workers/phone/:phoneNumber', async (req, res) => {
+    try {
+      const { phoneNumber } = req.params;
+      const connection = await pool.getConnection();
+
+      try {
+        // First find the worker_id for this phone number
+        const [phoneRecords] = await connection.execute(
+          'SELECT worker_id, is_primary FROM worker_phone_numbers WHERE phone_number = ?',
+          [phoneNumber]
+        );
+
+        if (phoneRecords.length === 0) {
+          return res.status(404).json({ error: 'Phone number not found' });
+        }
+
+        const workerId = phoneRecords[0].worker_id;
+        const isPrimary = phoneRecords[0].is_primary;
+
+        // Get all phone numbers for this worker
+        const [phoneNumbers] = await connection.execute(
+          'SELECT phone_number, is_primary FROM worker_phone_numbers WHERE worker_id = ?',
+          [workerId]
+        );
+
+        // Get worker details
+        const [workers] = await connection.execute(
+          'SELECT * FROM workers WHERE id = ?',
+          [workerId]
+        );
+
+        if (workers.length === 0) {
+          return res.status(404).json({ error: 'Worker not found' });
+        }
+
+        const worker = {
+          id: workers[0].id,
+          name: workers[0].name,
+          phone_numbers: phoneNumbers.map(pn => ({
+            number: pn.phone_number,
+            is_primary: pn.is_primary
+          })),
+          created_at: workers[0].created_at,
+          updated_at: workers[0].updated_at
+        };
+
+        res.json({ 
+          worker,
+          is_primary: isPrimary
+        });
+
+      } finally {
+        connection.release();
+      }
+
+    } catch (error) {
+      console.error('Error fetching worker by phone:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
 // ================== CLIENT ENDPOINTS ==================
 
 // Create client
