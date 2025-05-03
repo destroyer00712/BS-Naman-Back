@@ -1,4 +1,4 @@
-USE jewelry_db;
+USE admin_BS_Gold;
 
 -- Add worker_phone column to orders table
 ALTER TABLE orders 

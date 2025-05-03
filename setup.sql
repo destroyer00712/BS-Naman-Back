@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS jewelry_db;
-USE jewelry_db;
+CREATE DATABASE IF NOT EXISTS admin_BS_Gold;
+USE admin_BS_Gold;
 
 CREATE TABLE workers (
     phone_number VARCHAR(15) PRIMARY KEY,

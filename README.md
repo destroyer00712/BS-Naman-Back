@@ -24,7 +24,7 @@ Backend API for the BSGold jewelry management system, featuring automatic databa
    DB_HOST=localhost
    DB_USER=your_db_user
    DB_PASSWORD=your_db_password
-   DB_NAME=jewelry_db
+   DB_NAME=admin_BS_Gold
    LOG_LEVEL=info
    NODE_ENV=development
    ```
