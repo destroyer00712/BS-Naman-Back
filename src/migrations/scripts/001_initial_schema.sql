@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS workers (
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
 -- Worker phone numbers table
 CREATE TABLE IF NOT EXISTS worker_phones (
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS worker_phones (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE,
     UNIQUE KEY unique_phone (phone_number)
-);
+) ENGINE=InnoDB;
 
 -- Clients table
 CREATE TABLE IF NOT EXISTS clients (
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS clients (
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
 -- Orders table
 CREATE TABLE IF NOT EXISTS orders (
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_phone) REFERENCES clients(phone_number)
-);
+) ENGINE=InnoDB;
 
 -- Messages table
 CREATE TABLE IF NOT EXISTS messages (
@@ -48,4 +48,4 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_type ENUM('enterprise', 'client', 'worker') NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id)
-); 
+) ENGINE=InnoDB; 

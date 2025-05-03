@@ -97,14 +97,31 @@ const runMigrations = async () => {
         
         logger.info(`Applying migration: ${file}`);
         
-        // Begin transaction
-        await connection.beginTransaction();
-        
         try {
-          // Execute each statement
+          // Handle database creation statements first
           for (const statement of statements) {
-            if (statement.trim()) {
-              await connection.execute(statement);
+            const trimmedStmt = statement.trim();
+            if (trimmedStmt.toUpperCase().startsWith('CREATE DATABASE') || 
+                trimmedStmt.toUpperCase().startsWith('USE ')) {
+              await connection.execute(trimmedStmt);
+            }
+          }
+          
+          // Begin transaction for table operations
+          await connection.beginTransaction();
+          
+          // Execute all non-database statements
+          for (const statement of statements) {
+            const trimmedStmt = statement.trim();
+            if (!trimmedStmt.toUpperCase().startsWith('CREATE DATABASE') && 
+                !trimmedStmt.toUpperCase().startsWith('USE ') && 
+                trimmedStmt) {
+              try {
+                await connection.execute(trimmedStmt);
+              } catch (error) {
+                logger.error(`Error executing statement: ${trimmedStmt}`);
+                throw error;
+              }
             }
           }
           
@@ -119,7 +136,9 @@ const runMigrations = async () => {
           logger.info(`Migration applied successfully: ${file}`);
         } catch (error) {
           // Rollback on error
-          await connection.rollback();
+          if (connection.inTransaction) {
+            await connection.rollback();
+          }
           logger.error(`Migration failed: ${file}`, error);
           throw error;
         }
@@ -142,8 +161,8 @@ const runMigrations = async () => {
 // Initial migration SQL
 const getInitialMigration = () => {
   return `
-CREATE DATABASE IF NOT EXISTS jewelry_db;
-USE jewelry_db;
+CREATE DATABASE IF NOT EXISTS admin_BS_Gold;
+USE admin_BS_Gold;
 
 -- Workers table with ID as primary key
 CREATE TABLE IF NOT EXISTS workers (
@@ -151,7 +170,7 @@ CREATE TABLE IF NOT EXISTS workers (
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
 -- Worker phone numbers table
 CREATE TABLE IF NOT EXISTS worker_phones (
@@ -162,7 +181,7 @@ CREATE TABLE IF NOT EXISTS worker_phones (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE,
     UNIQUE KEY unique_phone (phone_number)
-);
+) ENGINE=InnoDB;
 
 -- Clients table
 CREATE TABLE IF NOT EXISTS clients (
@@ -170,7 +189,7 @@ CREATE TABLE IF NOT EXISTS clients (
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
 -- Orders table
 CREATE TABLE IF NOT EXISTS orders (
@@ -181,7 +200,7 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (client_phone) REFERENCES clients(phone_number)
-);
+) ENGINE=InnoDB;
 
 -- Messages table
 CREATE TABLE IF NOT EXISTS messages (
@@ -192,7 +211,7 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_type ENUM('enterprise', 'client', 'worker') NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id)
-);
+) ENGINE=InnoDB;
   `;
 };
 
