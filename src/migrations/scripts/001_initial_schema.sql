@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS orders (
     jewellery_details JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_phone) REFERENCES clients(phone_number)
+    FOREIGN KEY (client_phone) REFERENCES clients(phone_number),
+    UNIQUE KEY (order_number)
 ) ENGINE=InnoDB;
 
 -- Messages table
