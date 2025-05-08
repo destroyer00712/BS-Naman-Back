@@ -1,0 +1,121 @@
+{
+	"info": {
+		"_postman_id": "b5f8c3d9-7e2a-4b1c-9d3f-8e7a6b5c4d3e",
+		"name": "BSGold Client APIs",
+		"description": "Collection of APIs for managing clients",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Client",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"John Doe\",\n    \"phone_number\": \"+1234567890\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/clients",
+					"host": ["{{base_url}}"],
+					"path": ["api", "clients"]
+				},
+				"description": "Create a new client with name and phone number"
+			}
+		},
+		{
+			"name": "Get All Clients",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/clients",
+					"host": ["{{base_url}}"],
+					"path": ["api", "clients"]
+				},
+				"description": "Retrieve all clients"
+			}
+		},
+		{
+			"name": "Get Client by Phone",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/clients/:phoneNumber",
+					"host": ["{{base_url}}"],
+					"path": ["api", "clients", ":phoneNumber"],
+					"variable": [
+						{
+							"key": "phoneNumber",
+							"value": "+1234567890",
+							"description": "Phone number of the client"
+						}
+					]
+				},
+				"description": "Retrieve a specific client by phone number"
+			}
+		},
+		{
+			"name": "Update Client",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"John Updated\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/clients/:phoneNumber",
+					"host": ["{{base_url}}"],
+					"path": ["api", "clients", ":phoneNumber"],
+					"variable": [
+						{
+							"key": "phoneNumber",
+							"value": "+1234567890",
+							"description": "Phone number of the client to update"
+						}
+					]
+				},
+				"description": "Update client details by phone number"
+			}
+		},
+		{
+			"name": "Delete Client",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/clients/:phoneNumber",
+					"host": ["{{base_url}}"],
+					"path": ["api", "clients", ":phoneNumber"],
+					"variable": [
+						{
+							"key": "phoneNumber",
+							"value": "+1234567890",
+							"description": "Phone number of the client to delete"
+						}
+					]
+				},
+				"description": "Delete a client by phone number"
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		}
+	]
+} 
