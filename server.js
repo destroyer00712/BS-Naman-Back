@@ -67,6 +67,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Socket.io request handler - prevent 404 errors for socket.io requests
+app.use('/socket.io', (req, res) => {
+  res.status(200).send('Socket.io is not implemented on this server');
+});
+
 // Route middlewares
 app.use('/api/orders', orderRoutes);
 app.use('/api/workers', workerRoutes);
