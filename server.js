@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const app = express();
 const winston = require('winston');
 const fs = require('fs');
@@ -50,6 +51,9 @@ const messageRoutes = require('./src/routes/messageRoutes');
 
 // Import middleware
 const errorHandler = require('./src/middleware/errorHandler');
+
+// Enable CORS for all origins
+app.use(cors());
 
 // Middleware
 app.use(express.json());

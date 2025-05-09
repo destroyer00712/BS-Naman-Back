@@ -9,7 +9,7 @@ const createWorker = async (req, res) => {
   logger.info('Creating new worker', { body: req.body });
   
   try {
-    const { name, primary_phone, secondary_phone } = req.body;
+    const { name, primary_phone, secondary_phones } = req.body;
     
     if (!name || !primary_phone) {
       logger.warn('Missing required fields for worker creation', { body: req.body });
@@ -21,7 +21,7 @@ const createWorker = async (req, res) => {
     const connection = await pool.getConnection();
 
     try {
-      // Check if phone numbers already exist
+      // Check if primary phone already exists
       const [existingPrimary] = await connection.execute(
         'SELECT phone_number FROM worker_phones WHERE phone_number = ?',
         [primary_phone]
@@ -34,16 +34,19 @@ const createWorker = async (req, res) => {
         });
       }
 
-      if (secondary_phone) {
+      // Check if any secondary phone already exists
+      if (secondary_phones && secondary_phones.length > 0) {
+        const placeholders = secondary_phones.map(() => '?').join(',');
         const [existingSecondary] = await connection.execute(
-          'SELECT phone_number FROM worker_phones WHERE phone_number = ?',
-          [secondary_phone]
+          `SELECT phone_number FROM worker_phones WHERE phone_number IN (${placeholders})`,
+          secondary_phones
         );
 
         if (existingSecondary.length > 0) {
-          logger.warn('Secondary phone number already exists', { phone: secondary_phone });
+          logger.warn('Secondary phone number already exists', { phones: existingSecondary });
           return res.status(409).json({
-            error: 'Worker with this secondary phone number already exists'
+            error: 'One or more secondary phone numbers already exist',
+            existing_phones: existingSecondary.map(phone => phone.phone_number)
           });
         }
       }
@@ -65,12 +68,14 @@ const createWorker = async (req, res) => {
         [workerId, primary_phone, true]
       );
       
-      // Insert secondary phone if provided
-      if (secondary_phone) {
-        await connection.execute(
-          'INSERT INTO worker_phones (worker_id, phone_number, is_primary) VALUES (?, ?, ?)',
-          [workerId, secondary_phone, false]
-        );
+      // Insert secondary phones if provided
+      if (secondary_phones && secondary_phones.length > 0) {
+        for (const phone of secondary_phones) {
+          await connection.execute(
+            'INSERT INTO worker_phones (worker_id, phone_number, is_primary) VALUES (?, ?, ?)',
+            [workerId, phone, false]
+          );
+        }
       }
       
       // Commit transaction
@@ -80,7 +85,7 @@ const createWorker = async (req, res) => {
         workerId, 
         name, 
         primary_phone,
-        secondary_phone 
+        secondary_phones 
       });
 
       res.status(201).json({
@@ -90,7 +95,7 @@ const createWorker = async (req, res) => {
           name,
           phones: [
             { phone_number: primary_phone, is_primary: true },
-            ...(secondary_phone ? [{ phone_number: secondary_phone, is_primary: false }] : [])
+            ...(secondary_phones || []).map(phone => ({ phone_number: phone, is_primary: false }))
           ],
           created_at: new Date()
         }
@@ -223,7 +228,7 @@ const getWorkerByPhone = async (req, res) => {
  */
 const updateWorker = async (req, res) => {
   const { phoneNumber } = req.params;
-  const { name, primary_phone, secondary_phone } = req.body;
+  const { name, primary_phone, secondary_phones } = req.body;
   
   logger.info('Updating worker', { 
     phoneNumber, 
@@ -319,41 +324,53 @@ const updateWorker = async (req, res) => {
         }
       }
 
-      // Update secondary phone
-      if (secondary_phone) {
-        // Check if secondary already exists for another worker
+      // Update secondary phones
+      if (secondary_phones && secondary_phones.length > 0) {
+        // Check if any secondary phone already exists for another worker
+        const placeholders = secondary_phones.map(() => '?').join(',');
         const [existingSecondary] = await connection.execute(`
-          SELECT wp.worker_id 
+          SELECT wp.phone_number, wp.worker_id 
           FROM worker_phones wp
-          WHERE wp.phone_number = ? AND wp.worker_id != ?
-        `, [secondary_phone, workerId]);
+          WHERE wp.phone_number IN (${placeholders}) AND wp.worker_id != ?
+        `, [...secondary_phones, workerId]);
 
         if (existingSecondary.length > 0) {
           await connection.rollback();
           logger.warn('Secondary phone already exists for another worker', { 
-            phone: secondary_phone, 
-            existingWorkerId: existingSecondary[0].worker_id 
+            phones: existingSecondary 
           });
           return res.status(409).json({
-            error: 'Secondary phone number already exists for another worker'
+            error: 'One or more secondary phone numbers already exist for another worker',
+            existing_phones: existingSecondary.map(phone => phone.phone_number)
           });
         }
 
-        // Check if phone exists for this worker
-        const [existingPhone] = await connection.execute(`
-          SELECT id, is_primary FROM worker_phones
-          WHERE worker_id = ? AND phone_number = ?
-        `, [workerId, secondary_phone]);
+        // Get current secondary phones
+        const [currentSecondary] = await connection.execute(`
+          SELECT phone_number FROM worker_phones
+          WHERE worker_id = ? AND is_primary = false
+        `, [workerId]);
 
-        // Don't add if it's already a primary
-        if (existingPhone.length === 0 || !existingPhone[0].is_primary) {
-          // Add new secondary phone if it doesn't exist
-          if (existingPhone.length === 0) {
+        const currentSecondaryPhones = currentSecondary.map(phone => phone.phone_number);
+
+        // Add new secondary phones
+        for (const phone of secondary_phones) {
+          if (!currentSecondaryPhones.includes(phone)) {
             await connection.execute(`
               INSERT INTO worker_phones (worker_id, phone_number, is_primary)
               VALUES (?, ?, false)
-            `, [workerId, secondary_phone]);
+            `, [workerId, phone]);
           }
+        }
+
+        // Remove secondary phones that are no longer in the list
+        const phonesToRemove = currentSecondaryPhones.filter(phone => !secondary_phones.includes(phone));
+        if (phonesToRemove.length > 0) {
+          const removePlaceholders = phonesToRemove.map(() => '?').join(',');
+          await connection.execute(`
+            DELETE FROM worker_phones
+            WHERE worker_id = ? AND phone_number IN (${removePlaceholders})
+          `, [workerId, ...phonesToRemove]);
         }
       }
 

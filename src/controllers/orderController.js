@@ -7,27 +7,32 @@ const { sendWorkerAssignmentMessage, sendWorkerRemovalMessage, getWorkerPhoneNum
  */
 const createOrder = async (req, res) => {
   try {
-    const { client_details, jewellery_details, worker_phone } = req.body;
+    const { client_details, jewellery_details, worker_phone, employee_code } = req.body;
     
-    if (!client_details?.phone || !jewellery_details) {
+    if (!client_details?.phone || !jewellery_details || !employee_code) {
       return res.status(400).json({ 
         error: 'Missing required fields' 
       });
     }
 
-    // Ensure jewellery_details has a status field, default to 'pending'
-    if (!jewellery_details.status) {
-      jewellery_details.status = 'pending';
-    }
-
     const connection = await pool.getConnection();
 
     try {
+      // Verify employee exists
+      const [employeeExists] = await connection.execute(
+        'SELECT id FROM employees WHERE id = ?',
+        [employee_code]
+      );
+
+      if (employeeExists.length === 0) {
+        return res.status(404).json({ error: 'Employee not found' });
+      }
+
       await connection.beginTransaction();
 
       const [result] = await connection.execute(
-        'INSERT INTO orders (client_phone, jewellery_details, worker_phone) VALUES (?, ?, ?)',
-        [client_details.phone, JSON.stringify(jewellery_details), worker_phone || null]
+        'INSERT INTO orders (client_phone, jewellery_details, worker_phone, employee_code) VALUES (?, ?, ?, ?)',
+        [client_details.phone, JSON.stringify(jewellery_details), worker_phone || null, employee_code]
       );
 
       const orderId = generateOrderId(result.insertId);
@@ -84,14 +89,17 @@ const getAllOrders = async (req, res) => {
     try {
       const [orders] = await connection.execute(
         `SELECT 
-          id,
-          client_phone,
-          worker_phone,
-          jewellery_details,
-          created_at,
-          updated_at
-        FROM orders 
-        ORDER BY created_at DESC`
+          o.id,
+          o.client_phone,
+          o.worker_phone,
+          o.employee_code,
+          o.jewellery_details,
+          o.created_at,
+          o.updated_at,
+          e.name as employee_name
+        FROM orders o
+        LEFT JOIN employees e ON o.employee_code = e.id
+        ORDER BY o.created_at DESC`
       );
 
       const formattedOrders = orders.map(order => ({
@@ -100,6 +108,10 @@ const getAllOrders = async (req, res) => {
           phone: order.client_phone
         },
         worker_phone: order.worker_phone,
+        employee_details: {
+          code: order.employee_code,
+          name: order.employee_name
+        },
         jewellery_details: JSON.parse(order.jewellery_details),
         created_at: order.created_at,
         updated_at: order.updated_at
@@ -133,15 +145,18 @@ const getWorkerPendingOrders = async (req, res) => {
     try {
       const [orders] = await connection.execute(
         `SELECT 
-          id,
-          client_phone,
-          worker_phone,
-          jewellery_details,
-          created_at,
-          updated_at
-        FROM orders 
-        WHERE worker_phone = ? AND JSON_EXTRACT(jewellery_details, '$.status') = 'pending'
-        ORDER BY created_at DESC`,
+          o.id,
+          o.client_phone,
+          o.worker_phone,
+          o.employee_code,
+          o.jewellery_details,
+          o.created_at,
+          o.updated_at,
+          e.name as employee_name
+        FROM orders o
+        LEFT JOIN employees e ON o.employee_code = e.id
+        WHERE o.worker_phone = ? AND JSON_EXTRACT(o.jewellery_details, '$.status') = 'pending'
+        ORDER BY o.created_at DESC`,
         [phoneNumber]
       );
 
@@ -151,6 +166,10 @@ const getWorkerPendingOrders = async (req, res) => {
           phone: order.client_phone
         },
         worker_phone: order.worker_phone,
+        employee_details: {
+          code: order.employee_code,
+          name: order.employee_name
+        },
         jewellery_details: JSON.parse(order.jewellery_details),
         created_at: order.created_at,
         updated_at: order.updated_at
