@@ -24,10 +24,28 @@ const createOrder = async (req, res) => {
     try {
       await connection.beginTransaction();
 
+      let finalWorkerPhone = null;
+      
+      // If worker_phone is provided, check if it exists, otherwise use default
+      if (worker_phone) {
+        const [workerExists] = await connection.execute(
+          'SELECT phone_number FROM worker_phones WHERE phone_number = ?',
+          [worker_phone]
+        );
+        
+        if (workerExists.length > 0) {
+          finalWorkerPhone = worker_phone;
+          console.log('Using provided worker phone:', worker_phone);
+        } else {
+          finalWorkerPhone = 'DEFAULT_WORKER_PHONE';
+          console.log('Worker phone not found, using default:', finalWorkerPhone);
+        }
+      }
+
       console.log('Proceeding with order creation...');
       const [result] = await connection.execute(
         'INSERT INTO orders (client_phone, jewellery_details, worker_phone, employee_code) VALUES (?, ?, ?, ?)',
-        [client_details.phone, JSON.stringify(jewellery_details), worker_phone || null, employee_code || null]
+        [client_details.phone, JSON.stringify(jewellery_details), finalWorkerPhone, employee_code || null]
       );
 
       const orderId = generateOrderId(result.insertId);
@@ -44,6 +62,7 @@ const createOrder = async (req, res) => {
       res.status(201).json({
         message: 'Order created successfully',
         order_id: orderId,
+        worker_phone: finalWorkerPhone,
         created_at: new Date()
       });
 
@@ -197,10 +216,25 @@ const reassignWorker = async (req, res) => {
       const previousWorkerPhone = currentOrder.worker_phone;
       const parsedJewelleryDetails = JSON.parse(currentOrder.jewellery_details);
 
+      let finalWorkerPhone = worker_phone;
+      
+      // Check if the provided worker phone exists, otherwise use default
+      const [workerExists] = await connection.execute(
+        'SELECT phone_number FROM worker_phones WHERE phone_number = ?',
+        [worker_phone]
+      );
+      
+      if (workerExists.length === 0) {
+        finalWorkerPhone = 'DEFAULT_WORKER_PHONE';
+        console.log('Worker phone not found during reassignment, using default:', finalWorkerPhone);
+      } else {
+        console.log('Using provided worker phone for reassignment:', worker_phone);
+      }
+
       // Update the order with the new worker
       await connection.execute(
         'UPDATE orders SET worker_phone = ? WHERE id = ?',
-        [worker_phone, orderId]
+        [finalWorkerPhone, orderId]
       );
 
       // Get the updated order
@@ -228,8 +262,8 @@ const reassignWorker = async (req, res) => {
         updated_at: updatedOrder[0].updated_at
       };
 
-      // Send WhatsApp messages if worker has changed
-      if (previousWorkerPhone && previousWorkerPhone !== worker_phone) {
+      // Send WhatsApp messages if worker has changed (skip for default worker)
+      if (previousWorkerPhone && previousWorkerPhone !== finalWorkerPhone && finalWorkerPhone !== 'DEFAULT_WORKER_PHONE') {
         // Get all phone numbers for the previous worker
         const previousWorkerPhones = await getWorkerPhoneNumbers(connection, previousWorkerPhone);
         
@@ -239,12 +273,15 @@ const reassignWorker = async (req, res) => {
         }
       }
 
-      // Get all phone numbers for the new worker
-      const newWorkerPhones = await getWorkerPhoneNumbers(connection, worker_phone);
-      
-      // Send messages to all phone numbers of the new worker
-      for (const phone of newWorkerPhones) {
-        await sendWorkerAssignmentMessage(phone, formattedOrder);
+      // Send assignment messages only if not using default worker
+      if (finalWorkerPhone !== 'DEFAULT_WORKER_PHONE') {
+        // Get all phone numbers for the new worker
+        const newWorkerPhones = await getWorkerPhoneNumbers(connection, finalWorkerPhone);
+        
+        // Send messages to all phone numbers of the new worker
+        for (const phone of newWorkerPhones) {
+          await sendWorkerAssignmentMessage(phone, formattedOrder);
+        }
       }
 
       res.json({

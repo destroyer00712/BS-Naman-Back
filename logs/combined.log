@@ -1,0 +1,4 @@
+2025-06-06T17:14:44.615Z info: Server running on port 1340
+2025-06-06T17:14:44.659Z error: Database initialization failed: Access denied for user 'admin_naman'@'localhost' (using password: YES)
+2025-06-06T17:15:07.951Z info: Server running on port 1340
+2025-06-06T17:15:07.966Z error: Database initialization failed: Access denied for user 'admin_naman'@'localhost' (using password: YES)
