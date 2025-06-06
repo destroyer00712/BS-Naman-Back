@@ -10,7 +10,7 @@ const createOrder = async (req, res) => {
     const { client_details, jewellery_details, worker_phone, employee_code } = req.body;
     
     // Debug logging
-    console.log('Creating order with worker_phone:', worker_phone);
+    console.log('Creating order with worker_phone:', worker_phone, 'employee_code:', employee_code);
     
     // Only client_details.phone and jewellery_details are required
     if (!client_details?.phone || !jewellery_details) {
@@ -25,6 +25,7 @@ const createOrder = async (req, res) => {
       await connection.beginTransaction();
 
       let finalWorkerPhone = null;
+      let finalEmployeeCode = null;
       
       // If worker_phone is provided, check if it exists, otherwise use default
       if (worker_phone) {
@@ -42,10 +43,26 @@ const createOrder = async (req, res) => {
         }
       }
 
+      // If employee_code is provided, check if it exists, otherwise use default
+      if (employee_code) {
+        const [employeeExists] = await connection.execute(
+          'SELECT id FROM employees WHERE id = ?',
+          [employee_code]
+        );
+        
+        if (employeeExists.length > 0) {
+          finalEmployeeCode = employee_code;
+          console.log('Using provided employee code:', employee_code);
+        } else {
+          finalEmployeeCode = 'DEFAULT';
+          console.log('Employee code not found, using default:', finalEmployeeCode);
+        }
+      }
+
       console.log('Proceeding with order creation...');
       const [result] = await connection.execute(
         'INSERT INTO orders (client_phone, jewellery_details, worker_phone, employee_code) VALUES (?, ?, ?, ?)',
-        [client_details.phone, JSON.stringify(jewellery_details), finalWorkerPhone, employee_code || null]
+        [client_details.phone, JSON.stringify(jewellery_details), finalWorkerPhone, finalEmployeeCode]
       );
 
       const orderId = generateOrderId(result.insertId);
@@ -63,6 +80,7 @@ const createOrder = async (req, res) => {
         message: 'Order created successfully',
         order_id: orderId,
         worker_phone: finalWorkerPhone,
+        employee_code: finalEmployeeCode,
         created_at: new Date()
       });
 
