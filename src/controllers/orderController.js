@@ -19,18 +19,6 @@ const createOrder = async (req, res) => {
     const connection = await pool.getConnection();
 
     try {
-      // Verify employee exists only if employee_code is provided
-      if (employee_code) {
-        const [employeeExists] = await connection.execute(
-          'SELECT id FROM employees WHERE id = ?',
-          [employee_code]
-        );
-
-        if (employeeExists.length === 0) {
-          return res.status(404).json({ error: 'Employee not found' });
-        }
-      }
-
       await connection.beginTransaction();
 
       const [result] = await connection.execute(
@@ -47,21 +35,7 @@ const createOrder = async (req, res) => {
 
       await connection.commit();
 
-      // If worker is assigned, send WhatsApp notification
-      if (worker_phone) {
-        const orderDetails = {
-          order_id: orderId,
-          jewellery_details
-        };
-
-        // Get all phone numbers for the worker
-        const workerPhones = await getWorkerPhoneNumbers(connection, worker_phone);
-        
-        // Send assignment messages to all worker phone numbers
-        for (const phone of workerPhones) {
-          await sendWorkerAssignmentMessage(phone, orderDetails);
-        }
-      }
+      // Note: WhatsApp notifications are skipped to avoid issues with dummy/invalid phone numbers
 
       res.status(201).json({
         message: 'Order created successfully',
