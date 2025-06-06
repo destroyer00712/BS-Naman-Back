@@ -9,30 +9,33 @@ const createOrder = async (req, res) => {
   try {
     const { client_details, jewellery_details, worker_phone, employee_code } = req.body;
     
-    if (!client_details?.phone || !jewellery_details || !employee_code) {
+    // Only client_details.phone and jewellery_details are required
+    if (!client_details?.phone || !jewellery_details) {
       return res.status(400).json({ 
-        error: 'Missing required fields' 
+        error: 'Missing required fields: client_details.phone and jewellery_details are required' 
       });
     }
 
     const connection = await pool.getConnection();
 
     try {
-      // Verify employee exists
-      const [employeeExists] = await connection.execute(
-        'SELECT id FROM employees WHERE id = ?',
-        [employee_code]
-      );
+      // Verify employee exists only if employee_code is provided
+      if (employee_code) {
+        const [employeeExists] = await connection.execute(
+          'SELECT id FROM employees WHERE id = ?',
+          [employee_code]
+        );
 
-      if (employeeExists.length === 0) {
-        return res.status(404).json({ error: 'Employee not found' });
+        if (employeeExists.length === 0) {
+          return res.status(404).json({ error: 'Employee not found' });
+        }
       }
 
       await connection.beginTransaction();
 
       const [result] = await connection.execute(
         'INSERT INTO orders (client_phone, jewellery_details, worker_phone, employee_code) VALUES (?, ?, ?, ?)',
-        [client_details.phone, JSON.stringify(jewellery_details), worker_phone || null, employee_code]
+        [client_details.phone, JSON.stringify(jewellery_details), worker_phone || null, employee_code || null]
       );
 
       const orderId = generateOrderId(result.insertId);
