@@ -9,12 +9,25 @@ const createWorker = async (req, res) => {
   logger.info('Creating new worker', { body: req.body });
   
   try {
-    const { name, primary_phone, secondary_phones } = req.body;
+    let { name, primary_phone, secondary_phones, phone_numbers } = req.body;
+    
+    // Handle both formats: phone_numbers array or primary_phone + secondary_phones
+    if (phone_numbers && Array.isArray(phone_numbers) && phone_numbers.length > 0) {
+      if (!primary_phone) {
+        // If no primary phone specified, randomly choose one from the array
+        const randomIndex = Math.floor(Math.random() * phone_numbers.length);
+        primary_phone = phone_numbers[randomIndex];
+        secondary_phones = phone_numbers.filter((phone, index) => index !== randomIndex);
+      } else {
+        // Primary phone is specified, use remaining numbers as secondary
+        secondary_phones = phone_numbers.filter(phone => phone !== primary_phone);
+      }
+    }
     
     if (!name || !primary_phone) {
       logger.warn('Missing required fields for worker creation', { body: req.body });
       return res.status(400).json({ 
-        error: 'Name and primary phone number are required' 
+        error: 'Name and at least one phone number are required' 
       });
     }
 
