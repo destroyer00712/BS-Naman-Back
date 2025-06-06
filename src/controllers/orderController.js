@@ -24,22 +24,6 @@ const createOrder = async (req, res) => {
     try {
       await connection.beginTransaction();
 
-      // If worker_phone is provided, validate that it exists in worker_phones table
-      if (worker_phone) {
-        console.log('Validating worker_phone:', worker_phone);
-        const [workerExists] = await connection.execute(
-          'SELECT phone_number FROM worker_phones WHERE phone_number = ?',
-          [worker_phone]
-        );
-
-        console.log('Worker validation result:', workerExists.length > 0 ? 'Found' : 'Not found');
-
-        if (workerExists.length === 0) {
-          await connection.rollback();
-          return res.status(404).json({ error: 'Worker not found' });
-        }
-      }
-
       console.log('Proceeding with order creation...');
       const [result] = await connection.execute(
         'INSERT INTO orders (client_phone, jewellery_details, worker_phone, employee_code) VALUES (?, ?, ?, ?)',
@@ -212,16 +196,6 @@ const reassignWorker = async (req, res) => {
       const currentOrder = orderExists[0];
       const previousWorkerPhone = currentOrder.worker_phone;
       const parsedJewelleryDetails = JSON.parse(currentOrder.jewellery_details);
-
-      // Check if worker exists
-      const [workerExists] = await connection.execute(
-        'SELECT phone_number FROM worker_phones WHERE phone_number = ?',
-        [worker_phone]
-      );
-
-      if (workerExists.length === 0) {
-        return res.status(404).json({ error: 'Worker not found' });
-      }
 
       // Update the order with the new worker
       await connection.execute(
