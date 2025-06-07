@@ -1,0 +1,754 @@
+{
+	"info": {
+		"_postman_id": "bsgold-api-collection",
+		"name": "BSGold API Collection",
+		"description": "Complete API collection for BSGold application",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Employee APIs",
+			"item": [
+				{
+					"name": "Create Employee",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"John Doe\",\n  \"phoneNumber\": \"1234567890\",\n  \"email\": \"john@example.com\",\n  \"position\": \"Manager\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/employees",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"employees"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get All Employees",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/employees",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"employees"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Employee by Phone",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/employees/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"employees",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Employee",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"John Doe Updated\",\n  \"email\": \"john.updated@example.com\",\n  \"position\": \"Senior Manager\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/employees/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"employees",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Employee",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/employees/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"employees",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Order APIs",
+			"item": [
+				{
+					"name": "Create Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"clientPhone\": \"9876543210\",\n  \"workerPhone\": \"1234567890\",\n  \"orderDetails\": \"Gold jewelry repair\",\n  \"amount\": 5000,\n  \"status\": \"pending\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/orders",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"orders"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get All Orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/orders",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"orders"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Worker Pending Orders",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/orders/worker/:phoneNumber/pending",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"orders",
+								"worker",
+								":phoneNumber",
+								"pending"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Reassign Worker to Order",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newWorkerPhone\": \"9876543210\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/orders/:orderId/reassign",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"orders",
+								":orderId",
+								"reassign"
+							],
+							"variable": [
+								{
+									"key": "orderId",
+									"value": "order123"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Order",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"completed\",\n  \"amount\": 5500,\n  \"orderDetails\": \"Gold jewelry repair - completed\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/orders/:orderId",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"orders",
+								":orderId"
+							],
+							"variable": [
+								{
+									"key": "orderId",
+									"value": "order123"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Order",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/orders/:orderId",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"orders",
+								":orderId"
+							],
+							"variable": [
+								{
+									"key": "orderId",
+									"value": "order123"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Worker APIs",
+			"item": [
+				{
+					"name": "Create Worker",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Worker Name\",\n  \"phoneNumbers\": [\"1234567890\", \"0987654321\"],\n  \"skills\": [\"Gold polishing\", \"Jewelry repair\"],\n  \"address\": \"Worker Address\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/workers",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"workers"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get All Workers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/workers",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"workers"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Worker by Phone",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/workers/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"workers",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Worker",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Worker Name\",\n  \"skills\": [\"Gold polishing\", \"Jewelry repair\", \"Stone setting\"],\n  \"address\": \"Updated Worker Address\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/workers/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"workers",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Worker",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/workers/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"workers",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Worker Phone Number",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/workers/:workerId/phone/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"workers",
+								":workerId",
+								"phone",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "workerId",
+									"value": "worker123"
+								},
+								{
+									"key": "phoneNumber",
+									"value": "1234567890"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Reassign Order to Worker",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/workers/reassign/:orderId/:newWorkerPhone",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"workers",
+								"reassign",
+								":orderId",
+								":newWorkerPhone"
+							],
+							"variable": [
+								{
+									"key": "orderId",
+									"value": "order123"
+								},
+								{
+									"key": "newWorkerPhone",
+									"value": "9876543210"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Message APIs",
+			"item": [
+				{
+					"name": "Save Message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"orderId\": \"order123\",\n  \"sender\": \"client\",\n  \"message\": \"Order status update\",\n  \"timestamp\": \"2024-01-01T10:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/messages",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"messages"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get All Messages",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/messages",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"messages"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Messages by Order ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/messages/order/:orderId",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"messages",
+								"order",
+								":orderId"
+							],
+							"variable": [
+								{
+									"key": "orderId",
+									"value": "order123"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Client APIs",
+			"item": [
+				{
+					"name": "Create Client",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Client Name\",\n  \"phoneNumber\": \"9876543210\",\n  \"email\": \"client@example.com\",\n  \"address\": \"Client Address\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/clients",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"clients"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get All Clients",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/clients",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"clients"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Client by Phone",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/clients/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"clients",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "9876543210"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Client",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Client Name\",\n  \"email\": \"updated.client@example.com\",\n  \"address\": \"Updated Client Address\"\n}"
+						},
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/clients/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"clients",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "9876543210"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Client",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "https://bsgold-api.chatloom.in/clients/:phoneNumber",
+							"protocol": "https",
+							"host": [
+								"bsgold-api",
+								"chatloom",
+								"in"
+							],
+							"path": [
+								"clients",
+								":phoneNumber"
+							],
+							"variable": [
+								{
+									"key": "phoneNumber",
+									"value": "9876543210"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://bsgold-api.chatloom.in",
+			"type": "string"
+		}
+	]
+} 
