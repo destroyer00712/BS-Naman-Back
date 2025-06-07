@@ -48,6 +48,7 @@ const orderRoutes = require('./src/routes/orderRoutes');
 const workerRoutes = require('./src/routes/workerRoutes');
 const clientRoutes = require('./src/routes/clientRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
+const mediaRoutes = require('./src/routes/mediaRoutes');
 
 // Import middleware
 const errorHandler = require('./src/middleware/errorHandler');
@@ -81,6 +82,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/workers', workerRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api', mediaRoutes);
 
 // Error handler middleware
 app.use(errorHandler);
