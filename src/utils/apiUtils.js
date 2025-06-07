@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 const whatsappConfig = require('../config/whatsapp');
+const logger = require('./logger');
 
 // ============================================
 // CONFIGURATION CONSTANTS
@@ -44,14 +45,63 @@ const CONFIG = {
  * @returns {Promise<Object>} Media details with url, mime_type, sha256, file_size, id
  */
 const getMediaDetails = async (mediaId) => {
-  const response = await fetch(`https://graph.facebook.com/v17.0/${mediaId}`, {
-    headers: {
-      'Authorization': `Bearer ${CONFIG.WHATSAPP_ACCESS_TOKEN}`
-    }
+  const startTime = Date.now();
+  logger.info('Starting getMediaDetails request', { 
+    mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+    function: 'getMediaDetails'
   });
-  
-  return await response.json();
-  // Response: { url, mime_type, sha256, file_size, id }
+
+  try {
+    const url = `https://graph.facebook.com/v17.0/${mediaId}`;
+    logger.debug('Making WhatsApp API request', { 
+      url,
+      hasToken: !!CONFIG.WHATSAPP_ACCESS_TOKEN,
+      function: 'getMediaDetails'
+    });
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${CONFIG.WHATSAPP_ACCESS_TOKEN}`
+      }
+    });
+
+    const responseTime = Date.now() - startTime;
+    
+    if (!response.ok) {
+      logger.error('WhatsApp API request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+        responseTime,
+        function: 'getMediaDetails'
+      });
+      throw new Error(`WhatsApp API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.info('getMediaDetails completed successfully', {
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      mimeType: result.mime_type,
+      fileSize: result.file_size,
+      hasUrl: !!result.url,
+      responseTime,
+      function: 'getMediaDetails'
+    });
+
+    return result;
+    // Response: { url, mime_type, sha256, file_size, id }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('getMediaDetails failed', {
+      error: error.message,
+      stack: error.stack,
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      responseTime,
+      function: 'getMediaDetails'
+    });
+    throw error;
+  }
 };
 
 /**
@@ -60,11 +110,55 @@ const getMediaDetails = async (mediaId) => {
  * @returns {Promise<Blob>} Binary blob data
  */
 const fetchProxiedMedia = async (facebookMediaUrl) => {
-  const proxyUrl = `https://bsgold.chatloom.in/api/proxy-fb-media?url=${encodeURIComponent(facebookMediaUrl)}`;
-  const response = await fetch(proxyUrl);
-  
-  return await response.blob();
-  // Response: Binary blob data
+  const startTime = Date.now();
+  logger.info('Starting fetchProxiedMedia request', { 
+    hasUrl: !!facebookMediaUrl,
+    urlLength: facebookMediaUrl ? facebookMediaUrl.length : 0,
+    function: 'fetchProxiedMedia'
+  });
+
+  try {
+    const proxyUrl = `https://bsgold.chatloom.in/api/proxy-fb-media?url=${encodeURIComponent(facebookMediaUrl)}`;
+    
+    logger.debug('Making proxy media request', { 
+      proxyUrl: proxyUrl.substring(0, 100) + '...',
+      function: 'fetchProxiedMedia'
+    });
+
+    const response = await fetch(proxyUrl);
+    const responseTime = Date.now() - startTime;
+
+    if (!response.ok) {
+      logger.error('Proxy media request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        responseTime,
+        function: 'fetchProxiedMedia'
+      });
+      throw new Error(`Proxy media request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    
+    logger.info('fetchProxiedMedia completed successfully', {
+      blobSize: blob.size,
+      blobType: blob.type,
+      responseTime,
+      function: 'fetchProxiedMedia'
+    });
+
+    return blob;
+    // Response: Binary blob data
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('fetchProxiedMedia failed', {
+      error: error.message,
+      stack: error.stack,
+      responseTime,
+      function: 'fetchProxiedMedia'
+    });
+    throw error;
+  }
 };
 
 /**
@@ -75,17 +169,70 @@ const fetchProxiedMedia = async (facebookMediaUrl) => {
  * @returns {Promise<Object>} Upload result with permanentUrl and success status
  */
 const uploadMedia = async (blob, mimeType, fileExtension) => {
-  const formData = new FormData();
-  formData.append('file', blob, `media_${Date.now()}${fileExtension}`);
-  formData.append('type', mimeType);
-  
-  const response = await fetch(`${CONFIG.API_ROOT}/api/media/upload`, {
-    method: 'POST',
-    body: formData
+  const startTime = Date.now();
+  logger.info('Starting uploadMedia request', { 
+    blobSize: blob ? blob.size : 0,
+    mimeType,
+    fileExtension,
+    function: 'uploadMedia'
   });
-  
-  return await response.json();
-  // Response: { permanentUrl: "/uploads/media/filename.ext", success: true }
+
+  try {
+    const formData = new FormData();
+    const filename = `media_${Date.now()}${fileExtension}`;
+    formData.append('file', blob, filename);
+    formData.append('type', mimeType);
+
+    logger.debug('Prepared form data for upload', {
+      filename,
+      mimeType,
+      hasBlob: !!blob,
+      function: 'uploadMedia'
+    });
+
+    const uploadUrl = `${CONFIG.API_ROOT}/api/media/upload`;
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    if (!response.ok) {
+      logger.error('Media upload request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        uploadUrl,
+        responseTime,
+        function: 'uploadMedia'
+      });
+      throw new Error(`Media upload failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.info('uploadMedia completed successfully', {
+      filename,
+      permanentUrl: result.permanentUrl,
+      success: result.success,
+      responseTime,
+      function: 'uploadMedia'
+    });
+
+    return result;
+    // Response: { permanentUrl: "/uploads/media/filename.ext", success: true }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('uploadMedia failed', {
+      error: error.message,
+      stack: error.stack,
+      mimeType,
+      fileExtension,
+      responseTime,
+      function: 'uploadMedia'
+    });
+    throw error;
+  }
 };
 
 /**
@@ -94,16 +241,64 @@ const uploadMedia = async (blob, mimeType, fileExtension) => {
  * @returns {Promise<Object>} Messages for the order
  */
 const getOrderMessages = async (orderId) => {
-  const response = await fetch(`${CONFIG.API_ROOT}/api/orders/${orderId}/messages`);
-  return await response.json();
-  // Response: { 
-  //   messages: [
-  //     {
-  //       message_id, order_id, content, sender_type,
-  //       media_id?, media_type?, created_at, recipients?
-  //     }
-  //   ]
-  // }
+  const startTime = Date.now();
+  logger.info('Starting getOrderMessages request', { 
+    orderId,
+    function: 'getOrderMessages'
+  });
+
+  try {
+    const url = `${CONFIG.API_ROOT}/api/orders/${orderId}/messages`;
+    
+    logger.debug('Making order messages request', { 
+      url,
+      orderId,
+      function: 'getOrderMessages'
+    });
+
+    const response = await fetch(url);
+    const responseTime = Date.now() - startTime;
+
+    if (!response.ok) {
+      logger.error('Order messages request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        orderId,
+        responseTime,
+        function: 'getOrderMessages'
+      });
+      throw new Error(`Order messages request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.info('getOrderMessages completed successfully', {
+      orderId,
+      messageCount: result.messages ? result.messages.length : 0,
+      responseTime,
+      function: 'getOrderMessages'
+    });
+
+    return result;
+    // Response: { 
+    //   messages: [
+    //     {
+    //       message_id, order_id, content, sender_type,
+    //       media_id?, media_type?, created_at, recipients?
+    //     }
+    //   ]
+    // }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('getOrderMessages failed', {
+      error: error.message,
+      stack: error.stack,
+      orderId,
+      responseTime,
+      function: 'getOrderMessages'
+    });
+    throw error;
+  }
 };
 
 /**
@@ -112,9 +307,57 @@ const getOrderMessages = async (orderId) => {
  * @returns {Promise<Object>} Client details
  */
 const getClientDetails = async (phoneNumber) => {
-  const response = await fetch(`${CONFIG.API_ROOT}/api/clients/${phoneNumber}`);
-  return await response.json();
-  // Response: { client: { name, phone, ...other_details } }
+  const startTime = Date.now();
+  logger.info('Starting getClientDetails request', { 
+    phoneNumber: phoneNumber ? `***${phoneNumber.slice(-4)}` : 'null',
+    function: 'getClientDetails'
+  });
+
+  try {
+    const url = `${CONFIG.API_ROOT}/api/clients/${phoneNumber}`;
+    
+    logger.debug('Making client details request', { 
+      url: url.replace(phoneNumber, `***${phoneNumber.slice(-4)}`),
+      function: 'getClientDetails'
+    });
+
+    const response = await fetch(url);
+    const responseTime = Date.now() - startTime;
+
+    if (!response.ok) {
+      logger.error('Client details request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        phoneNumber: phoneNumber ? `***${phoneNumber.slice(-4)}` : 'null',
+        responseTime,
+        function: 'getClientDetails'
+      });
+      throw new Error(`Client details request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.info('getClientDetails completed successfully', {
+      phoneNumber: phoneNumber ? `***${phoneNumber.slice(-4)}` : 'null',
+      hasClient: !!result.client,
+      clientName: result.client ? result.client.name : null,
+      responseTime,
+      function: 'getClientDetails'
+    });
+
+    return result;
+    // Response: { client: { name, phone, ...other_details } }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('getClientDetails failed', {
+      error: error.message,
+      stack: error.stack,
+      phoneNumber: phoneNumber ? `***${phoneNumber.slice(-4)}` : 'null',
+      responseTime,
+      function: 'getClientDetails'
+    });
+    throw error;
+  }
 };
 
 /**
@@ -123,9 +366,57 @@ const getClientDetails = async (phoneNumber) => {
  * @returns {Promise<Object>} Worker details
  */
 const getWorkerDetails = async (workerPhone) => {
-  const response = await fetch(`${CONFIG.API_ROOT}/api/workers/${workerPhone}`);
-  return await response.json();
-  // Response: { worker: { phones: [{ phone_number }], ...other_details } }
+  const startTime = Date.now();
+  logger.info('Starting getWorkerDetails request', { 
+    workerPhone: workerPhone ? `***${workerPhone.slice(-4)}` : 'null',
+    function: 'getWorkerDetails'
+  });
+
+  try {
+    const url = `${CONFIG.API_ROOT}/api/workers/${workerPhone}`;
+    
+    logger.debug('Making worker details request', { 
+      url: url.replace(workerPhone, `***${workerPhone.slice(-4)}`),
+      function: 'getWorkerDetails'
+    });
+
+    const response = await fetch(url);
+    const responseTime = Date.now() - startTime;
+
+    if (!response.ok) {
+      logger.error('Worker details request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        workerPhone: workerPhone ? `***${workerPhone.slice(-4)}` : 'null',
+        responseTime,
+        function: 'getWorkerDetails'
+      });
+      throw new Error(`Worker details request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.info('getWorkerDetails completed successfully', {
+      workerPhone: workerPhone ? `***${workerPhone.slice(-4)}` : 'null',
+      hasWorker: !!result.worker,
+      phoneCount: result.worker && result.worker.phones ? result.worker.phones.length : 0,
+      responseTime,
+      function: 'getWorkerDetails'
+    });
+
+    return result;
+    // Response: { worker: { phones: [{ phone_number }], ...other_details } }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('getWorkerDetails failed', {
+      error: error.message,
+      stack: error.stack,
+      workerPhone: workerPhone ? `***${workerPhone.slice(-4)}` : 'null',
+      responseTime,
+      function: 'getWorkerDetails'
+    });
+    throw error;
+  }
 };
 
 /**
@@ -134,20 +425,76 @@ const getWorkerDetails = async (workerPhone) => {
  * @returns {Promise<Object>} Save result with success status and message_id
  */
 const saveMessage = async (messageData) => {
-  const response = await fetch(`${CONFIG.API_ROOT}/api/messages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  const startTime = Date.now();
+  logger.info('Starting saveMessage request', { 
+    orderId: messageData.order_id,
+    senderType: messageData.sender_type,
+    hasContent: !!messageData.content,
+    contentLength: messageData.content ? messageData.content.length : 0,
+    hasForwardedFrom: !!messageData.forwarded_from,
+    hasOriginalMessageId: !!messageData.original_message_id,
+    function: 'saveMessage'
+  });
+
+  try {
+    const url = `${CONFIG.API_ROOT}/api/messages`;
+    const payload = {
       order_id: messageData.order_id,
       content: messageData.content,
       sender_type: messageData.sender_type,
       forwarded_from: messageData.forwarded_from, // optional
       original_message_id: messageData.original_message_id // optional
-    })
-  });
-  
-  return await response.json();
-  // Response: { success: true, message_id: "new_message_id" }
+    };
+
+    logger.debug('Making save message request', { 
+      url,
+      payloadKeys: Object.keys(payload),
+      function: 'saveMessage'
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    if (!response.ok) {
+      logger.error('Save message request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        orderId: messageData.order_id,
+        responseTime,
+        function: 'saveMessage'
+      });
+      throw new Error(`Save message request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.info('saveMessage completed successfully', {
+      orderId: messageData.order_id,
+      messageId: result.message_id,
+      success: result.success,
+      responseTime,
+      function: 'saveMessage'
+    });
+
+    return result;
+    // Response: { success: true, message_id: "new_message_id" }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('saveMessage failed', {
+      error: error.message,
+      stack: error.stack,
+      orderId: messageData.order_id,
+      senderType: messageData.sender_type,
+      responseTime,
+      function: 'saveMessage'
+    });
+    throw error;
+  }
 };
 
 /**
@@ -158,16 +505,21 @@ const saveMessage = async (messageData) => {
  * @returns {Promise<Object>} Send result
  */
 const sendWhatsAppMessage = async (phoneNumber, messageContent, orderId) => {
-  const response = await fetch(`https://graph.facebook.com/v17.0${CONFIG.WHATSAPP_PHONE_ID}/messages`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${CONFIG.WHATSAPP_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
+  const startTime = Date.now();
+  logger.info('Starting sendWhatsAppMessage request', { 
+    phoneNumber: phoneNumber ? `***${phoneNumber.slice(-4)}` : 'null',
+    orderId,
+    messageLength: messageContent ? messageContent.length : 0,
+    function: 'sendWhatsAppMessage'
+  });
+
+  try {
+    const cleanPhoneNumber = phoneNumber.replace(/\D/g, '');
+    const url = `https://graph.facebook.com/v17.0${CONFIG.WHATSAPP_PHONE_ID}/messages`;
+    const payload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
-      to: phoneNumber.replace(/\D/g, ''),
+      to: cleanPhoneNumber,
       type: "template",
       template: {
         name: "update_sending",
@@ -180,15 +532,68 @@ const sendWhatsAppMessage = async (phoneNumber, messageContent, orderId) => {
           ]
         }]
       }
-    })
-  });
-  
-  return await response.json();
-  // Response: { 
-  //   messaging_product: "whatsapp",
-  //   contacts: [{ input, wa_id }],
-  //   messages: [{ id }]
-  // }
+    };
+
+    logger.debug('Making WhatsApp send message request', { 
+      url,
+      to: `***${cleanPhoneNumber.slice(-4)}`,
+      templateName: payload.template.name,
+      hasToken: !!CONFIG.WHATSAPP_ACCESS_TOKEN,
+      function: 'sendWhatsAppMessage'
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${CONFIG.WHATSAPP_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    if (!response.ok) {
+      logger.error('WhatsApp send message request failed', {
+        status: response.status,
+        statusText: response.statusText,
+        phoneNumber: `***${cleanPhoneNumber.slice(-4)}`,
+        orderId,
+        responseTime,
+        function: 'sendWhatsAppMessage'
+      });
+      throw new Error(`WhatsApp send message failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.info('sendWhatsAppMessage completed successfully', {
+      phoneNumber: `***${cleanPhoneNumber.slice(-4)}`,
+      orderId,
+      messageId: result.messages ? result.messages[0]?.id : null,
+      contactWaId: result.contacts ? result.contacts[0]?.wa_id : null,
+      responseTime,
+      function: 'sendWhatsAppMessage'
+    });
+
+    return result;
+    // Response: { 
+    //   messaging_product: "whatsapp",
+    //   contacts: [{ input, wa_id }],
+    //   messages: [{ id }]
+    // }
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('sendWhatsAppMessage failed', {
+      error: error.message,
+      stack: error.stack,
+      phoneNumber: phoneNumber ? `***${phoneNumber.slice(-4)}` : 'null',
+      orderId,
+      responseTime,
+      function: 'sendWhatsAppMessage'
+    });
+    throw error;
+  }
 };
 
 // ============================================
@@ -201,11 +606,27 @@ const sendWhatsAppMessage = async (phoneNumber, messageContent, orderId) => {
  * @returns {Promise<Object>} Permanent URL and media type
  */
 const processMediaMessage = async (mediaId) => {
+  const startTime = Date.now();
+  logger.info('Starting processMediaMessage flow', { 
+    mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+    function: 'processMediaMessage'
+  });
+
   try {
     // Step 1: Get media details from WhatsApp
+    logger.debug('Step 1: Getting media details from WhatsApp', { 
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      function: 'processMediaMessage'
+    });
     const mediaDetails = await getMediaDetails(mediaId);
     
     // Step 2: Fetch media content through proxy
+    logger.debug('Step 2: Fetching media content through proxy', { 
+      hasUrl: !!mediaDetails.url,
+      mimeType: mediaDetails.mime_type,
+      fileSize: mediaDetails.file_size,
+      function: 'processMediaMessage'
+    });
     const blob = await fetchProxiedMedia(mediaDetails.url);
     
     // Step 3: Determine file extension from MIME type
@@ -222,17 +643,48 @@ const processMediaMessage = async (mediaId) => {
     };
     const fileExtension = extensionMap[mimeType] || `.${mimeType.split('/')[1]}`;
     
+    logger.debug('Step 3: Determined file extension', { 
+      mimeType,
+      fileExtension,
+      blobSize: blob.size,
+      function: 'processMediaMessage'
+    });
+    
     // Step 4: Upload to permanent storage
+    logger.debug('Step 4: Uploading to permanent storage', { 
+      mimeType,
+      fileExtension,
+      blobSize: blob.size,
+      function: 'processMediaMessage'
+    });
     const uploadResult = await uploadMedia(blob, mimeType, fileExtension);
     
     // Step 5: Return permanent URL
-    return {
+    const result = {
       url: `https://bsgold-api.chatloom.in${uploadResult.permanentUrl}`,
       type: mimeType
     };
+
+    const responseTime = Date.now() - startTime;
+    logger.info('processMediaMessage completed successfully', {
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      finalUrl: result.url,
+      mimeType: result.type,
+      totalProcessingTime: responseTime,
+      function: 'processMediaMessage'
+    });
+
+    return result;
     
   } catch (error) {
-    console.error('Error processing media:', error);
+    const responseTime = Date.now() - startTime;
+    logger.error('processMediaMessage failed', {
+      error: error.message,
+      stack: error.stack,
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      totalProcessingTime: responseTime,
+      function: 'processMediaMessage'
+    });
     throw error;
   }
 };
