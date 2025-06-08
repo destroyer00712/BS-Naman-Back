@@ -236,6 +236,273 @@ const uploadMedia = async (blob, mimeType, fileExtension) => {
 };
 
 /**
+ * Enhanced Media Content Fetcher for Forwarding
+ * Fetches media from Facebook and uploads to permanent storage for reliable forwarding
+ * @param {string} mediaId - WhatsApp media ID
+ * @returns {Promise<Object>} Permanent media data with URL and type
+ */
+const fetchMediaContentForForwarding = async (mediaId) => {
+  const startTime = Date.now();
+  logger.info('Starting fetchMediaContentForForwarding flow', { 
+    mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+    function: 'fetchMediaContentForForwarding'
+  });
+
+  try {
+    // Step 1: Get media details from WhatsApp
+    logger.debug('Step 1: Getting media details for forwarding', { 
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      function: 'fetchMediaContentForForwarding'
+    });
+    const mediaDetails = await getMediaDetails(mediaId);
+    
+    // Step 2: Fetch media content through proxy
+    logger.debug('Step 2: Fetching media content for forwarding', { 
+      hasUrl: !!mediaDetails.url,
+      mimeType: mediaDetails.mime_type,
+      fileSize: mediaDetails.file_size,
+      function: 'fetchMediaContentForForwarding'
+    });
+    const blob = await fetchProxiedMedia(mediaDetails.url);
+    
+    // Step 3: Determine file extension from MIME type
+    const mimeType = mediaDetails.mime_type || 'application/octet-stream';
+    const extensionMap = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+      'video/mp4': '.mp4',
+      'video/quicktime': '.mov',
+      'audio/mpeg': '.mp3',
+      'audio/ogg': '.ogg',
+      'audio/mp4': '.m4a'
+    };
+    const fileExtension = extensionMap[mimeType] || `.${mimeType.split('/')[1]}`;
+    
+    logger.debug('Step 3: Determined file extension for forwarding', { 
+      mimeType,
+      fileExtension,
+      blobSize: blob.size,
+      function: 'fetchMediaContentForForwarding'
+    });
+    
+    // Step 4: Upload to permanent storage
+    logger.debug('Step 4: Uploading media for forwarding', { 
+      mimeType,
+      fileExtension,
+      blobSize: blob.size,
+      function: 'fetchMediaContentForForwarding'
+    });
+    const uploadResult = await uploadMedia(blob, mimeType, fileExtension);
+    
+    // Step 5: Return permanent URL for forwarding
+    const result = {
+      url: `${CONFIG.API_ROOT}${uploadResult.permanentUrl}`,
+      type: mimeType,
+      isPermanent: true,
+      filename: `media_${Date.now()}${fileExtension}`,
+      size: blob.size
+    };
+
+    const responseTime = Date.now() - startTime;
+    logger.info('fetchMediaContentForForwarding completed successfully', {
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      permanentUrl: result.url,
+      mimeType: result.type,
+      fileSize: result.size,
+      totalProcessingTime: responseTime,
+      function: 'fetchMediaContentForForwarding'
+    });
+
+    return result;
+    
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    
+    // If permanent upload fails, try to fallback to Facebook URL
+    logger.warn('Permanent media upload failed, attempting fallback', {
+      error: error.message,
+      mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+      processingTime: responseTime,
+      function: 'fetchMediaContentForForwarding'
+    });
+
+    try {
+      // Fallback: Get media details and return Facebook URL
+      const mediaDetails = await getMediaDetails(mediaId);
+      const fallbackResult = {
+        url: mediaDetails.url,
+        type: mediaDetails.mime_type,
+        isPermanent: false,
+        isFallback: true
+      };
+
+      logger.warn('Using Facebook URL as fallback for forwarding', {
+        mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+        fallbackUrl: 'Facebook URL (truncated)',
+        function: 'fetchMediaContentForForwarding'
+      });
+
+      return fallbackResult;
+
+    } catch (fallbackError) {
+      logger.error('Both permanent upload and fallback failed', {
+        originalError: error.message,
+        fallbackError: fallbackError.message,
+        stack: error.stack,
+        mediaId: mediaId ? `${mediaId.substring(0, 10)}***` : 'null',
+        totalProcessingTime: responseTime,
+        function: 'fetchMediaContentForForwarding'
+      });
+      throw error; // Throw original error
+    }
+  }
+};
+
+/**
+ * Forward Message with Permanent Media URLs
+ * @param {Object} message - Original message to forward
+ * @param {string} targetOrderId - Target order ID to forward to
+ * @param {string} recipientPhone - Recipient's phone number
+ * @param {string} senderType - Type of sender forwarding the message
+ * @returns {Promise<Object>} Forward result with message and WhatsApp send status
+ */
+const forwardMessage = async (message, targetOrderId, recipientPhone, senderType = 'enterprise') => {
+  const startTime = Date.now();
+  logger.info('Starting forwardMessage request', { 
+    originalMessageId: message.message_id,
+    targetOrderId,
+    recipientPhone: recipientPhone ? `***${recipientPhone.slice(-4)}` : 'null',
+    senderType,
+    hasMediaId: !!message.media_id,
+    function: 'forwardMessage'
+  });
+
+  try {
+    let messageContent = message.content;
+    let templateComponents = [{
+      type: "body", 
+      parameters: [
+        { type: "text", text: targetOrderId },
+        { type: "text", text: messageContent }
+      ]
+    }];
+
+    // Handle media messages
+    if (message.media_id) {
+      logger.debug('Processing media message for forwarding', {
+        mediaId: message.media_id ? `${message.media_id.substring(0, 10)}***` : 'null',
+        function: 'forwardMessage'
+      });
+
+      try {
+        // Fetch media and get permanent URL
+        const mediaData = await fetchMediaContentForForwarding(message.media_id);
+        
+        // Update message content to include permanent media URL
+        const mediaText = `[Media: ${mediaData.type}] ${mediaData.url}`;
+        messageContent = message.content ? `${message.content}\n\n${mediaText}` : mediaText;
+        
+        templateComponents = [{
+          type: "body", 
+          parameters: [
+            { type: "text", text: targetOrderId },
+            { type: "text", text: messageContent }
+          ]
+        }];
+
+        logger.info('Media processed for forwarding', {
+          mediaId: message.media_id ? `${message.media_id.substring(0, 10)}***` : 'null',
+          permanentUrl: mediaData.url,
+          isPermanent: mediaData.isPermanent,
+          isFallback: mediaData.isFallback || false,
+          function: 'forwardMessage'
+        });
+
+      } catch (mediaError) {
+        logger.error('Failed to process media for forwarding', {
+          error: mediaError.message,
+          mediaId: message.media_id ? `${message.media_id.substring(0, 10)}***` : 'null',
+          function: 'forwardMessage'
+        });
+        
+        // Continue with text-only forwarding
+        const mediaErrorText = `[Media processing failed - ID: ${message.media_id}]`;
+        messageContent = message.content ? `${message.content}\n\n${mediaErrorText}` : mediaErrorText;
+      }
+    }
+
+    // Send WhatsApp message
+    logger.debug('Sending forwarded WhatsApp message', {
+      recipientPhone: recipientPhone ? `***${recipientPhone.slice(-4)}` : 'null',
+      targetOrderId,
+      function: 'forwardMessage'
+    });
+
+    const whatsappResult = await sendWhatsAppMessage(recipientPhone, messageContent, targetOrderId);
+
+    // Save forwarded message to database
+    const messageData = {
+      order_id: targetOrderId,
+      content: messageContent,
+      sender_type: senderType,
+      forwarded_from: message.sender_type,
+      original_message_id: message.message_id
+    };
+
+    logger.debug('Saving forwarded message to database', {
+      targetOrderId,
+      senderType,
+      forwardedFrom: message.sender_type,
+      originalMessageId: message.message_id,
+      function: 'forwardMessage'
+    });
+
+    const saveResult = await saveMessage(messageData);
+
+    const responseTime = Date.now() - startTime;
+    logger.info('forwardMessage completed successfully', {
+      originalMessageId: message.message_id,
+      newMessageId: saveResult.message_id,
+      targetOrderId,
+      recipientPhone: recipientPhone ? `***${recipientPhone.slice(-4)}` : 'null',
+      whatsappMessageId: whatsappResult.messages ? whatsappResult.messages[0]?.id : null,
+      totalProcessingTime: responseTime,
+      function: 'forwardMessage'
+    });
+
+    return {
+      success: true,
+      originalMessage: message,
+      forwardedMessage: {
+        message_id: saveResult.message_id,
+        order_id: targetOrderId,
+        content: messageContent,
+        sender_type: senderType,
+        forwarded_from: message.sender_type,
+        original_message_id: message.message_id
+      },
+      whatsappResult,
+      processingTime: responseTime
+    };
+
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    logger.error('forwardMessage failed', {
+      error: error.message,
+      stack: error.stack,
+      originalMessageId: message.message_id,
+      targetOrderId,
+      recipientPhone: recipientPhone ? `***${recipientPhone.slice(-4)}` : 'null',
+      totalProcessingTime: responseTime,
+      function: 'forwardMessage'
+    });
+    throw error;
+  }
+};
+
+/**
  * Get Order Messages
  * @param {string} orderId - The order ID
  * @returns {Promise<Object>} Messages for the order
@@ -694,6 +961,8 @@ module.exports = {
   getMediaDetails,
   fetchProxiedMedia,
   uploadMedia,
+  fetchMediaContentForForwarding,
+  forwardMessage,
   getOrderMessages,
   getClientDetails,
   getWorkerDetails,
