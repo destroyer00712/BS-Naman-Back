@@ -29,6 +29,12 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir);
 }
 
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads', 'media');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 // Make logger available globally
 global.logger = logger;
 
@@ -83,6 +89,9 @@ app.use('/api/workers', workerRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api', mediaRoutes);
+
+// Serve media files directly (without /api prefix)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Error handler middleware
 app.use(errorHandler);
