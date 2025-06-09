@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const fs = require('fs');
 const path = require('path');
+const logger = require('../utils/logger');
 
 // Helper to validate database structure
 const validateDatabaseSchema = async (connection) => {
